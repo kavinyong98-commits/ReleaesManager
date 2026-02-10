@@ -1,0 +1,60 @@
+name: Update Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要更新的版本号 (格式: YYYYMMDD)'
+        required: true
+        type: string
+      fct:
+        description: '包含 FCT'
+        required: false
+        type: boolean
+        default: true
+      welcome:
+        description: '包含 Welcome'
+        required: false
+        type: boolean
+        default: true
+      fixture:
+        description: '包含 Fixture'
+        required: false
+        type: boolean
+        default: true
+      maintain:
+        description: '包含 Maintain'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  update-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Update Release
+        run: node scripts/update-release.js
+        env:
+          VERSION: ${{ inputs.version }}
+          FCT: ${{ inputs.fct }}
+          WELCOME: ${{ inputs.welcome }}
+          FIXTURE: ${{ inputs.fixture }}
+          MAINTAIN: ${{ inputs.maintain }}
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "release: update version ${{ inputs.version }}" || exit 0
+          git push
