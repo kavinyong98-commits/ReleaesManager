@@ -1,6 +1,28 @@
 const fs = require('fs');
 const path = require('path');
 
+// 模板目录
+const TEMPLATES_DIR = 'templates';
+
+// 读取模板文件
+const readTemplate = (templateName) => {
+  const templatePath = path.join(TEMPLATES_DIR, templateName);
+  if (!fs.existsSync(templatePath)) {
+    console.error(`模板文件不存在: ${templatePath}`);
+    process.exit(1);
+  }
+  return fs.readFileSync(templatePath, 'utf8');
+};
+
+// 替换模板变量
+const renderTemplate = (template, variables) => {
+  let result = template;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
+  }
+  return result;
+};
+
 // 获取环境变量
 const getVersion = () => {
   if (process.env.VERSION) return process.env.VERSION;
@@ -18,6 +40,7 @@ const getFeatures = () => ({
 const version = getVersion();
 const features = getFeatures();
 const releaseDir = path.join('releases', version);
+const dateStr = new Date().toISOString().split('T')[0];
 
 // 检查版本是否已存在
 if (fs.existsSync(releaseDir)) {
@@ -33,6 +56,14 @@ const enabledFeatures = Object.entries(features)
   .filter(([_, enabled]) => enabled)
   .map(([name]) => name);
 
+// 功能名称映射（小写 -> 显示名称）
+const featureDisplayNames = {
+  fct: 'FCT',
+  welcome: 'Welcome',
+  fixture: 'Fixture',
+  maintain: 'Maintain'
+};
+
 // 创建配置文件
 const config = {
   version,
@@ -41,49 +72,43 @@ const config = {
 };
 fs.writeFileSync(path.join(releaseDir, 'config.json'), JSON.stringify(config, null, 2));
 
+// 读取模板
+const releaseTemplate = readTemplate('release.md');
+const reviewTemplate = readTemplate('review.md');
+const testTemplate = readTemplate('test.md');
+
+// 生成功能说明部分
+const featureSections = enabledFeatures
+  .map(f => `### ${featureDisplayNames[f]}\n- [ ] 待填写`)
+  .join('\n\n');
+
 // 创建 release.md
-const releaseMd = `# Release ${version}
-
-## 发布信息
-- **版本**: ${version}
-- **创建时间**: ${new Date().toISOString().split('T')[0]}
-- **功能模块**: ${enabledFeatures.join(', ')}
-
-## 功能说明
-${enabledFeatures.includes('fct') ? '### FCT\n- [ ] 待填写\n' : ''}
-${enabledFeatures.includes('welcome') ? '### Welcome\n- [ ] 待填写\n' : ''}
-${enabledFeatures.includes('fixture') ? '### Fixture\n- [ ] 待填写\n' : ''}
-${enabledFeatures.includes('maintain') ? '### Maintain\n- [ ] 待填写\n' : ''}
-
-## 变更记录
-<!-- 在此添加变更内容 -->
-
-`;
+const releaseMd = renderTemplate(releaseTemplate, {
+  version,
+  date: dateStr,
+  features: enabledFeatures.map(f => featureDisplayNames[f]).join(', '),
+  featureSections
+});
 fs.writeFileSync(path.join(releaseDir, 'release.md'), releaseMd);
 
 // 创建 review.md
-const reviewMd = `# Review ${version}
-
-## 审核信息
-- **版本**: ${version}
-- **审核状态**: 待审核
-
-## 审核清单
-- [ ] 功能完整性
-- [ ] 代码质量
-- [ ] 测试覆盖
-- [ ] 文档完善
-
-## 审核意见
-<!-- 在此添加审核意见 -->
-
-## 审核历史
-| 日期 | 审核人 | 结果 | 备注 |
-|------|--------|------|------|
-| | | | |
-
-`;
+const reviewMd = renderTemplate(reviewTemplate, {
+  version
+});
 fs.writeFileSync(path.join(releaseDir, 'review.md'), reviewMd);
+
+// 为每个功能创建目录和 test.md
+for (const feature of enabledFeatures) {
+  const featureDir = path.join(releaseDir, feature);
+  fs.mkdirSync(featureDir, { recursive: true });
+  
+  const testMd = renderTemplate(testTemplate, {
+    version,
+    featureName: featureDisplayNames[feature],
+    date: dateStr
+  });
+  fs.writeFileSync(path.join(featureDir, 'test.md'), testMd);
+}
 
 // 更新中心索引
 const indexPath = 'releases.json';
