@@ -5,5 +5,11 @@
       "createdAt": "2026-02-10T15:45:00.000Z",
       "features": ["fct", "welcome", "fixture", "maintain"]
     }
-  ]
+  ],
+  "latest": null,
+  "metadata": {
+    "lastUpdated": "2026-02-10T15:45:00.000Z",
+    "totalVersions": 1,
+    "availableFeatures": ["fct", "welcome", "fixture", "maintain"]
+  }
 }

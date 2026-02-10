@@ -1,0 +1,76 @@
+name: Download Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (格式: YYYYMMDD 或 latest)'
+        required: true
+        type: string
+        default: 'latest'
+      include_fct:
+        description: '包含 FCT 文件夹'
+        required: false
+        type: boolean
+        default: true
+      include_welcome:
+        description: '包含 Welcome 文件夹'
+        required: false
+        type: boolean
+        default: true
+      include_fixture:
+        description: '包含 Fixture 文件夹'
+        required: false
+        type: boolean
+        default: true
+      include_maintain:
+        description: '包含 Maintain 文件夹'
+        required: false
+        type: boolean
+        default: true
+      include_docs:
+        description: '包含文档文件 (release.md, review.md)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  download-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prepare Download Package
+        id: prepare
+        run: node scripts/prepare-download.js
+        env:
+          VERSION: ${{ inputs.version }}
+          INCLUDE_FCT: ${{ inputs.include_fct }}
+          INCLUDE_WELCOME: ${{ inputs.include_welcome }}
+          INCLUDE_FIXTURE: ${{ inputs.include_fixture }}
+          INCLUDE_MAINTAIN: ${{ inputs.include_maintain }}
+          INCLUDE_DOCS: ${{ inputs.include_docs }}
+
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ env.ACTUAL_VERSION }}-${{ github.run_number }}
+          path: download-package/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          echo "## 📦 下载包已生成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **版本**: ${{ env.ACTUAL_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **包含功能**: ${{ env.INCLUDED_FEATURES }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **文件数量**: ${{ env.FILE_COUNT }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "请在 Actions 页面的 Artifacts 区域下载。" >> $GITHUB_STEP_SUMMARY

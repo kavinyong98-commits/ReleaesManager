@@ -1,0 +1,69 @@
+name: Validate Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要验证的版本号 (留空则验证所有版本)'
+        required: false
+        type: string
+      strict:
+        description: '严格模式 (失败时中断构建)'
+        required: false
+        type: boolean
+        default: false
+  # PR时自动验证
+  pull_request:
+    paths:
+      - 'releases/**'
+    branches:
+      - main
+  # 推送到main时自动验证
+  push:
+    paths:
+      - 'releases/**'
+    branches:
+      - main
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Release
+        id: validate
+        run: node scripts/validate-release.js
+        env:
+          VERSION: ${{ inputs.version }}
+          STRICT: ${{ inputs.strict }}
+
+      - name: Generate Report
+        if: always()
+        run: |
+          echo "## 🔍 发布验证报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f validation-report.md ]; then
+            cat validation-report.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "验证脚本未生成报告文件" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Validation Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report-${{ github.run_number }}
+          path: validation-report.md
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Fail on Errors (Strict Mode)
+        if: inputs.strict == true && steps.validate.outputs.has_errors == 'true'
+        run: exit 1

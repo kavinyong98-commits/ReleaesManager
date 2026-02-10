@@ -1,0 +1,54 @@
+name: Update Metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要更新的版本号 (格式: YYYYMMDD)'
+        required: true
+        type: string
+      new_version:
+        description: '新版本号 (留空则保持原版本号)'
+        required: false
+        type: string
+      update_time:
+        description: '更新时间戳'
+        required: false
+        type: boolean
+        default: true
+      update_changelog:
+        description: '在变更记录中添加更新条目'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  update-metadata:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Update Metadata
+        run: node scripts/update-metadata.js
+        env:
+          VERSION: ${{ inputs.version }}
+          NEW_VERSION: ${{ inputs.new_version }}
+          UPDATE_TIME: ${{ inputs.update_time }}
+          UPDATE_CHANGELOG: ${{ inputs.update_changelog }}
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet || git commit -m "metadata: update version ${{ inputs.version }}"
+          git pull --rebase origin main
+          git push

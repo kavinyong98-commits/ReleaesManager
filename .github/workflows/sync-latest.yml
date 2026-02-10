@@ -1,0 +1,43 @@
+name: Sync Latest
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '指定同步的版本号 (留空则自动使用最新版本)'
+        required: false
+        type: string
+  # 当releases目录有更新时自动触发
+  push:
+    paths:
+      - 'releases/**/config.json'
+    branches:
+      - main
+
+jobs:
+  sync-latest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sync to Latest
+        run: node scripts/sync-latest.js
+        env:
+          VERSION: ${{ inputs.version }}
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet || git commit -m "sync: update latest to ${{ env.SYNCED_VERSION }}"
+          git pull --rebase origin main
+          git push
